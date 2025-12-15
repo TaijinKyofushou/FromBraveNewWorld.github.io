@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>自新世界 - From Brave New World</title>
+    <style>
+        :root {
+            /* 默认主题，会被JSON覆盖 */
+            --bg-base: #f5f5f5;
+            --bg-hot: #e0e0e0;
+            --text-color: #1a1a1a;
+            --accent-color: #333333;
+            --heat-color: #555555;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-base);
+            color: var(--text-color);
+            font-family: "Songti SC", "Noto Serif SC", serif;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 2s ease;
+            user-select: none;
+        }
+
+        /* 视觉特效层 */
+        #vignette-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            box-shadow: inset 0 0 0px rgba(0, 0, 0, 0);
+            pointer-events: none; z-index: 5;
+            transition: box-shadow 1s ease; mix-blend-mode: multiply;
+        }
+        #noise {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 2; opacity: 0.06;
+            background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+        }
+
+        /* 顶部UI */
+        #top-ui {
+            position: fixed; top: 0; left: 0; width: 100%;
+            padding: 20px; box-sizing: border-box; z-index: 100;
+            display: flex; flex-direction: column; gap: 2px;
+            opacity: 0; transition: opacity 1s; pointer-events: none;
+        }
+        #timeline-container {
+            width: 100%; max-width: 800px; margin: 0 auto;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.7rem; color: #999;
+        }
+        #timeline-bar { flex-grow: 1; height: 2px; background: rgba(0,0,0,0.1); position: relative; }
+        #timeline-progress {
+            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+            background: var(--text-color); transition: width 0.5s ease;
+        }
+        #time-display {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(0,0,0,0.4), 0 0 3px rgba(0,0,0,0.2);
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0;
+            z-index: 101;
+            width: auto;
+            max-width: 800px;
+        }
+        #time-heat-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            margin-bottom: 0;
+            margin-top: 50px;
+        }
+        .time-char {
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+            height: 1.2em;
+            line-height: 1.2em;
+            vertical-align: top;
+        }
+        .time-char-inner {
+            display: inline-block;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .time-char.animate .time-char-inner {
+            animation: timeRoll 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        @keyframes timeRoll {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-1.2em);
+                opacity: 0.3;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        #heat-display {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 10px; font-size: 0.8rem; color: var(--accent-color);
+        }
+        #heat-bar-bg {
+            width: 80px; height: 6px; background: rgba(0,0,0,0.05);
+            border-radius: 3px; overflow: hidden;
+        }
+        #heat-bar-fill {
+            height: 100%; width: 0%; background: var(--heat-color);
+            transition: width 0.5s ease;
+        }
+
+        /* 底部控制栏 */
+        #control-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            padding: 15px; background: linear-gradient(to top, var(--bg-base) 80%, transparent);
+            z-index: 150; display: flex; justify-content: center; gap: 20px;
+            opacity: 0; transition: opacity 0.5s; 
+        }
+        .control-btn {
+            background: transparent; border: 1px solid #ccc;
+            color: #666; padding: 5px 15px; font-size: 0.8rem;
+            cursor: pointer; border-radius: 20px; font-family: inherit;
+            transition: all 0.2s;
+        }
+        .control-btn:hover:not(:disabled) {
+            border-color: var(--accent-color); color: var(--accent-color);
+            background: rgba(255,255,255,0.5);
+        }
+        .control-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .shortcut-hint { font-size: 0.7rem; opacity: 0.5; margin-left: 5px; }
+
+        /* 主容器 */
+        #game-container {
+            position: relative; width: 100%; max-width: 700px; height: 80vh;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10; padding: 20px; box-sizing: border-box;
+        }
+        #text-area {
+            font-size: 1.2rem; line-height: 2; text-align: left;
+            width: 100%; min-height: 250px; margin-top: 20px; margin-bottom: 30px;
+            opacity: 0; transform: translateY(20px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        .speaker {
+            font-size: 1.5rem; color: var(--accent-color); margin-bottom: 15px;
+            font-weight: 700; display: block; letter-spacing: 2px;
+            border-left: 3px solid var(--accent-color); padding-left: 10px;
+        }
+        .system-text { color: #666; font-style: italic; font-size: 1.1rem; }
+        #choices-area {
+            display: flex; flex-direction: column; width: 100%; gap: 15px;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s;
+        }
+        .choice-btn {
+            background: rgba(255,255,255,0.8); border: 1px solid #dcdcdc;
+            padding: 15px 20px; font-family: inherit; font-size: 1.1rem;
+            color: var(--text-color); cursor: pointer; transition: all 0.3s ease;
+            text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .choice-btn:hover {
+            background: #fff; border-color: var(--accent-color);
+            color: var(--accent-color); letter-spacing: 1px;
+            transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        #continue-hint {
+            position: absolute; bottom: 80px; font-size: 0.8rem; color: #aaa;
+            animation: blink 2s infinite; pointer-events: none; display: none;
+        }
+
+        /* 菜单界面 */
+        #start-screen, #achievement-screen, #ng-plus-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-base); z-index: 300;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+
+        /* 主页标题设计 */
+        .title-container {
+            margin-bottom: 60px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .title-main {
+            font-size: 5rem; 
+            font-weight: 900;
+            color: var(--text-color);
+            line-height: 0.9;
+            margin: 0;
+            text-shadow: none; 
+            letter-spacing: -2px; 
+            z-index: 2;
+            position: relative;
+        }
+
+        .title-sub {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 1rem; 
+            color: var(--accent-color);
+            margin-top: 10px;
+            font-weight: 300;
+            text-transform: uppercase;
+            margin-left: 1rem; 
+            animation: heat-shimmer 4s infinite alternate ease-in-out;
+            opacity: 0.8;
+        }
+
+        @keyframes heat-shimmer {
+            0% { letter-spacing: 1rem; opacity: 0.7; filter: blur(0px); }
+            100% { letter-spacing: 1.2rem; opacity: 1; filter: blur(0.5px); }
+        }
+
+        .credits { font-size: 0.8rem; color: #999; margin-bottom: 30px; letter-spacing: 2px; }
+        
+        .menu-btn {
+            padding: 10px 30px; 
+            border: none; 
+            border-bottom: 2px solid #333;
+            background: transparent; 
+            font-family: inherit; 
+            font-size: 1.1rem;
+            cursor: pointer; 
+            margin: 12px; 
+            transition: all 0.3s;
+            position: relative;
+        }
+        /* 主页游戏控制按钮：统一竖向居中排列 */
+        #game-controls .menu-btn {
+            display: block;
+            margin: 10px auto;
+        }
+        .menu-btn:hover {
+            letter-spacing: 4px; border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+        
+        #continue-btn {
+            border-bottom: 2px solid var(--accent-color);
+            font-weight: bold;
+        }
+
+        .danger-btn {
+            font-size: 0.8rem; color: #bbb; border-bottom: 1px dashed #ccc;
+            margin-top: 50px;
+        }
+        .danger-btn:hover { color: red; border-color: red; letter-spacing: 1px; }
+
+        /* 文件上传隐藏 */
+        #file-input { display: none; }
+
+        /* 结局列表 */
+        .achievement-list {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px; max-width: 800px; width: 90%; margin-bottom: 30px;
+            text-align: center; overflow-y: auto; max-height: 60vh;
+        }
+        .ach-item {
+            padding: 15px; border: 1px solid #e0e0e0; color: #ccc;
+            background: #fff; font-size: 0.9rem;
+        }
+        .ach-item.unlocked {
+            color: #333; border-color: var(--accent-color); background: #fffafa;
+        }
+        
+        /* Segment成就列表 */
+        .segment-achievement-list {
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px; 
+            max-width: 800px; 
+            width: 90%; 
+            margin-bottom: 30px;
+            text-align: left; 
+            overflow-y: auto; 
+            max-height: 60vh;
+        }
+        .segment-ach-item {
+            padding: 15px; 
+            border: 1px solid #e0e0e0; 
+            color: #333;
+            background: #fff; 
+            font-size: 0.9rem; 
+            border-radius: 4px;
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px;
+        }
+        .segment-ach-item .ach-time {
+            font-size: 0.8rem; 
+            color: #666; 
+            font-weight: normal;
+        }
+        .segment-ach-item .ach-name {
+            font-size: 1rem; 
+            font-weight: bold; 
+            color: var(--accent-color);
+            text-align: left;
+        }
+        #ending-detail-title {
+            font-size: 1.6rem;
+            font-weight: bolder;
+            color: var(--accent-color);
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 30px;
+        }
+        .segment-ach-item .ach-description {
+            font-size: 0.85rem; 
+            color: #555; 
+            line-height: 1.4;
+        }
+        
+        /* 成就弹窗 */
+        #achievement-toast {
+            position: fixed; bottom: 20px; left: 20px; z-index: 1000;
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(12px) saturate(180%);
+            -webkit-backdrop-filter: blur(12px) saturate(180%);
+            color: var(--text-color);
+            padding: 15px 20px; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-size: 0.95rem; max-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            opacity: 0; transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        #achievement-toast.show {
+            opacity: 1;
+        }
+        
+        /* 全成就弹窗样式 */
+        #full-achievement-toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2000;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px) saturate(180%);
+            -webkit-backdrop-filter: blur(12px) saturate(180%);
+            color: var(--text-color);
+            padding: 20px 30px; border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            font-family: "Songti SC", "Noto Serif SC", serif;
+            font-size: 1.2rem; font-weight: bold; max-width: 500px; text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            opacity: 0; transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        #full-achievement-toast.show {
+            opacity: 1;
+        }
+        
+        /* Segment成就页面 */
+        #segment-achievement-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-base); z-index: 300;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        
+        /* 全成就奖励文本界面 & 结局详情界面 */
+        #full-achievement-reward-screen,
+        #ending-detail-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-base); z-index: 400;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 20px; box-sizing: border-box;
+        }
+        #reward-text-area,
+        #ending-detail-text-area {
+            font-size: 1rem; 
+            line-height: 2; 
+            text-align: left;
+            width: 100%; 
+            max-height: 75vh; 
+            margin-bottom: 30px;
+            opacity: 1; 
+            transform: translateY(0);
+            overflow-y: auto;
+            /* 隐藏滚动条 */
+            -ms-overflow-style: none;  /* IE、Edge */
+            scrollbar-width: none;     /* Firefox */
+        }
+        #reward-text-area::-webkit-scrollbar,
+        #ending-detail-text-area::-webkit-scrollbar {
+            display: none;             /* Chrome、Safari */
+        }
+        #reward-content-text,
+        #ending-detail-main-text {
+            color: var(--text-color);
+        }
+        
+        /* 章节/结局全屏页 */
+        #chapter-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-base); z-index: 500;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            pointer-events: none; opacity: 0; transition: opacity 1.5s ease;
+        }
+        #chapter-title {
+            font-size: 2.2rem; font-weight: bold; letter-spacing: 5px;
+            color: var(--accent-color); text-align: center;
+        }
+
+        /* New Game Plus 界面样式 */
+        #ng-plus-screen {
+            display: none; 
+            background: var(--bg-base);
+            z-index: 400;
+        }
+        #ngp-options {
+            max-width: 800px;
+            width: 90%;
+            text-align: center;
+        }
+        .ngp-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #eee;
+            background: #fff;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #ngp-chapter-select {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto 30px;
+            text-align: left;
+        }
+        .ngp-option-btn {
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+            font-family: "Songti SC", "Noto Serif SC", serif;
+            font-size: 1.0rem;
+            text-align: left;
+            line-height: 1.8;
+            min-height: 80px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: var(--text-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .ngp-option-btn:hover {
+            background: #fff;
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.06);
+            transform: translateY(-2px);
+        }
+        .ngp-option-btn .ach-time {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: normal;
+        }
+        .ngp-option-btn .ach-name {
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        .ngp-option-btn .ach-description {
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.4;
+        }
+        #attr-slider-container {
+            margin-top: 15px;
+        }
+        #attr-slider {
+            width: 80%;
+            margin: 10px 0;
+        }
+        #start-ngp-btn {
+            margin-top: 30px;
+            padding: 12px 40px;
+            font-size: 1.2rem;
+            border-bottom: 3px solid var(--accent-color);
+        }
+
+        /* 修复 CSS: 结束按钮 - 强制 Flexbox 居中 */
+        #end-prompt-area {
+            position: fixed; 
+            bottom: 20%; /* 放在合适的高度 */
+            left: 0;
+            width: 100%;
+            
+            /* 关键：使用 Flexbox 强制水平居中 */
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+
+            z-index: 200; 
+            opacity: 0; 
+            transition: opacity 0.5s; 
+            pointer-events: none; /* 让点击穿透空白区域 */
+        }
+        #end-btn {
+            pointer-events: auto; /* 按钮自身恢复可点击 */
+            display: block; /* 确保是块级元素 */
+            min-width: 120px;
+        }
+
+        /* 动画 */
+        @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 
+            10%, 90% { transform: translate3d(-1px, 0, 0); } 
+            20%, 80% { transform: translate3d(2px, 0, 0); } 
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 
+            40%, 60% { transform: translate3d(4px, 0, 0); } 
+        }
+
+        @media (max-width: 600px) {
+            .title-main { font-size: 3.5rem; letter-spacing: -2px; }
+            .title-sub { font-size: 0.9rem; letter-spacing: 0.5rem; margin-left: 0.2rem; }
+            #text-area { font-size: 1.1rem; line-height: 1.8; }
+            #control-bar { padding: 10px; gap: 10px; }
+            .control-btn { font-size: 0.7rem; padding: 5px 10px; }
+            #time-display { font-size: 1.2rem; letter-spacing: 1px; max-width: 95%; }
+            .time-char { white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="vignette-overlay"></div>
+    <div id="noise"></div>
+
+    <div id="top-ui">
+        <div id="time-display" style="display:none;">
+            <span id="time-text"></span>
+        </div>
+        <div id="time-heat-container">
+            <div id="heat-display">
+                <span id="var-name">数值</span>
+                <div id="heat-bar-bg"><div id="heat-bar-fill"></div></div>
+                <span id="heat-num">0%</span>
+            </div>
+        </div>
+        <div id="timeline-container">
+            <span>START</span>
+            <div id="timeline-bar"><div id="timeline-progress"></div></div>
+            <span>END</span>
+        </div>
+    </div>
+
+    <div id="control-bar">
+        <button class="control-btn" onclick="returnToTitle()">主页</button>
+        <button class="control-btn" onclick="loadPrevChoice()" id="rewind-btn">撤回<span class="shortcut-hint">(←)</span></button>
+        <button class="control-btn" onclick="skipToNextChoice()" id="skip-btn">跳过<span class="shortcut-hint">(→)</span></button>
+    </div>
+
+    <div id="chapter-screen">
+        <div id="chapter-title"></div>
+    </div>
+
+    <div id="start-screen">
+        <div class="title-container">
+            <h1 class="title-main" id="main-title">AVG ENGINE</h1>
+            <div class="title-sub" id="sub-title">请导入剧本</div>
+        </div>
+        <div class="credits" id="credits-text">通用文字冒险游戏播放器</div>
+        
+        <div id="loading-hint" style="display:none; color:#999; font-size:0.9rem; margin:20px 0;">正在加载 libretto.json...</div>
+        <div id="error-hint" style="display:none; color:#d93025; font-size:0.9rem; margin:20px 0; max-width:500px; text-align:center;">未找到 libretto.json 文件，请使用下方按钮导入剧本</div>
+        <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(this)">
+        <button class="menu-btn" id="import-btn" onclick="document.getElementById('file-input').click()" style="border-color: #666; color: #666;">📂 导入剧本 (JSON)</button>
+
+        <div id="game-controls" style="display:none;">
+            <button id="continue-btn" class="menu-btn" onclick="continueGame()" style="display:none;">继续游戏</button>
+            <button class="menu-btn" onclick="normalStart()">开始新故事</button>
+            <button id="ngp-btn" class="menu-btn" onclick="showNewGamePlusScreen()" style="display:none;">多周目模式</button>
+            <button class="menu-btn" onclick="showAchievements()">结局列表</button>
+            <button class="menu-btn" onclick="showSegmentAchievements()">成就</button>
+            <button id="wipe-btn" class="menu-btn danger-btn" onclick="wipeMemory()" style="display:none;">记忆消除</button>
+        </div>
+    </div>
+    
+    <div id="ng-plus-screen">
+        <h2 style="margin-bottom: 30px; letter-spacing: 3px;">选择起始章节</h2>
+        <div id="ngp-options">
+            <div class="ngp-section">
+                <div id="ngp-chapter-select">
+                    </div>
+            </div>
+            
+            <div class="ngp-section" style="max-height: none; overflow: visible; display: none;">
+                <h3>调整初始 <span id="ngp-var-name"></span></h3>
+                <div id="attr-slider-container">
+                    <input type="range" id="attr-slider" min="0" max="100" value="80" oninput="document.getElementById('attr-slider-value').textContent=this.value">
+                    <div><span id="attr-slider-value">80</span></div>
+                </div>
+            </div>
+            <button class="menu-btn danger-btn" onclick="hideNewGamePlusScreen()">返回主页</button>
+        </div>
+    </div>
+
+    <div id="achievement-screen" style="display: none;">
+        <h2 style="margin-bottom: 30px; letter-spacing: 3px;">已解锁结局</h2>
+        <div class="achievement-list" id="ach-grid"></div>
+        <button class="menu-btn" onclick="hideAchievements()">返回</button>
+    </div>
+
+    <div id="segment-achievement-screen" style="display: none;">
+        <h2 style="margin-bottom: 30px; letter-spacing: 3px;">成就</h2>
+        <div id="segment-ach-stats" style="margin-bottom: 20px; font-size: 1rem; color: var(--text-color);"></div>
+        <div id="full-achievement-button-container" style="margin-bottom: 20px; display: none;">
+            <button class="menu-btn" id="full-achievement-btn" onclick="showFullAchievementRewardText()" style="border-color: var(--accent-color); color: var(--accent-color); font-weight: bold;">查看全成就奖励</button>
+        </div>
+        <div class="segment-achievement-list" id="segment-ach-grid"></div>
+        <button class="menu-btn" onclick="hideSegmentAchievements()">返回</button>
+    </div>
+    
+    <div id="full-achievement-reward-screen" style="display: none;">
+        <div id="reward-text-area" style="max-width: 700px; width: 90%;">
+            <span class="speaker" id="reward-speaker-label" style="display: none;"></span>
+            <div id="reward-content-text"></div>
+        </div>
+        <button class="menu-btn" onclick="hideFullAchievementRewardText()" style="margin-top: 10px;">返回</button>
+    </div>
+    
+    <div id="ending-detail-screen" style="display: none;">
+        <div id="ending-detail-title"></div>
+        <div id="ending-detail-text-area" style="max-width: 700px; width: 90%;">
+            <div id="ending-detail-main-text"></div>
+            <div id="ending-detail-desc-text" class="system-text" style="margin-top: 20px;"></div>
+        </div>
+        <button class="menu-btn" onclick="hideEndingDetail()" style="margin-top: 10px;">返回</button>
+    </div>
+
+    <div id="end-prompt-area">
+        <button id="end-btn" class="choice-btn" style="display:none;" onclick="playEndingAnim()">结束</button>
+    </div>
+    
+    <div id="achievement-toast" style="display: none;">
+        达成成就：<span id="toast-achievement-name"></span>
+    </div>
+    
+    <div id="full-achievement-toast" style="display: none;">
+        <span id="full-toast-text"></span>
+    </div>
+
+    <div id="game-container" onclick="handleContainerClick()">
+        <div id="text-area">
+            <span class="speaker" id="speaker-label"></span>
+            <div id="content-text"></div>
+        </div>
+        <div id="continue-hint">点击屏幕继续</div>
+        <div id="choices-area"></div>
+    </div>
+
+    <script>
+        /**
+         * 通用 AVG 引擎核心逻辑
+         * 支持导入符合特定结构的 JSON 文件进行游戏
+         */
+
+        // --- 核心变量 ---
+        let storyData = null; // 存储加载的 JSON
+        let gameState = { 
+            nodeId: "", 
+            val: 0, // 通用数值 (原燥热值)
+            flags: [], 
+            segmentIndex: 0, 
+            progress: 0,
+            time: "" // 当前时间节点
+        };
+        let gameHistory = [];
+        let unlockedAchievements = [];
+        let unlockedSegmentAchievements = [];
+        let storageKeyPrefix = "avg_engine_"; 
+        let inputEnabled = true; 
+        
+        // NG+ 变量
+        let finalEndings = []; // 自动筛选出的流程较长的结局
+        let ngpSettings = {
+            startNodeId: null,
+            initialVal: 50
+        };
+
+        // 新增：RGB转亮度公式 (ITU-R BT.709)
+        function getLuminance(hex) {
+            // 移除 #
+            hex = hex.replace('#', '');
+            // 分割 RGB
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            // 计算亮度 (加权平均)
+            return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        }
+
+        // 辅助函数: 启用或禁用底部控制按钮
+        function setControlsEnabled(enabled) {
+            document.getElementById('rewind-btn').disabled = !enabled;
+            document.getElementById('skip-btn').disabled = !enabled;
+        }
+
+
+        // --- 文件处理与初始化 ---
+        // 页面加载时自动尝试加载 libretto.json
+        window.addEventListener('DOMContentLoaded', function() {
+            const loadingHint = document.getElementById('loading-hint');
+            const errorHint = document.getElementById('error-hint');
+            const importBtn = document.getElementById('import-btn');
+            
+            // 尝试自动加载 libretto.json
+            loadingHint.style.display = 'block';
+            fetch('libretto.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('File not found');
+                    }
+                    return response.json();
+                })
+                .then(json => {
+                    loadingHint.style.display = 'none';
+                    errorHint.style.display = 'none';
+                    importBtn.style.display = 'none';
+                    loadStory(json);
+                })
+                .catch(err => {
+                    loadingHint.style.display = 'none';
+                    errorHint.style.display = 'block';
+                    importBtn.style.display = 'block';
+                    console.log('自动加载失败，请手动导入:', err);
+                });
+        });
+
+        function handleFileUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    document.getElementById('loading-hint').style.display = 'none';
+                    document.getElementById('error-hint').style.display = 'none';
+                    document.getElementById('import-btn').style.display = 'none';
+                    loadStory(json);
+                } catch (err) {
+                    alert("JSON 解析失败: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadStory(json) {
+            // 基础校验
+            if (!json.nodes || !json.startNodeId) {
+                alert("无效的剧本文件：缺少 nodes 或 startNodeId");
+                return;
+            }
+
+            storyData = json;
+            const root = document.documentElement;
+            
+            // 1. 应用元数据 (Title, Style)
+            document.getElementById('main-title').textContent = json.meta.title || "未知故事";
+            document.getElementById('sub-title').textContent = json.meta.subtitle || "UNKNOWN STORY";
+            document.getElementById('credits-text').textContent = "作者: " + (json.meta.author || "佚名");
+            
+            // 2. 应用主题颜色 & 自动适配文本色
+            let bgBaseColor = '#f5f5f5'; // 默认值
+            if (json.meta.theme) {
+                if(json.meta.theme.bgBase) {
+                    bgBaseColor = json.meta.theme.bgBase;
+                    root.style.setProperty('--bg-base', bgBaseColor);
+                }
+                if(json.meta.theme.bgIntense) root.style.setProperty('--bg-hot', json.meta.theme.bgIntense);
+                if(json.meta.theme.textColor) {
+                    root.style.setProperty('--text-color', json.meta.theme.textColor);
+                }
+                if(json.meta.theme.accentColor) root.style.setProperty('--accent-color', json.meta.theme.accentColor);
+                if(json.meta.theme.barColor) root.style.setProperty('--heat-color', json.meta.theme.barColor);
+            }
+            
+            if (!json.meta.theme || !json.meta.theme.textColor) {
+                const luminance = getLuminance(bgBaseColor);
+                if (luminance < 0.5) {
+                    root.style.setProperty('--text-color', '#f0f0f0'); 
+                    if(!json.meta.theme.accentColor) root.style.setProperty('--accent-color', '#cccccc'); 
+                    if(!json.meta.theme.barColor) root.style.setProperty('--heat-color', '#dddddd'); 
+                } else {
+                    root.style.setProperty('--text-color', '#1a1a1a');
+                    if(!json.meta.theme.accentColor) root.style.setProperty('--accent-color', '#333333'); 
+                    if(!json.meta.theme.barColor) root.style.setProperty('--heat-color', '#555555'); 
+                }
+            }
+
+            // 3. 应用数值名称
+            document.getElementById('var-name').textContent = json.meta.variableName || "？？？";
+            document.getElementById('ngp-var-name').textContent = document.getElementById('var-name').textContent;
+            
+            // 4. 初始化时间显示
+            if (json.meta.initialTime) {
+                gameState.time = json.meta.initialTime;
+                document.getElementById('time-display').style.display = 'block';
+                updateTimeDisplay();
+            }
+            
+            // 5. 确定存档 Key
+            storageKeyPrefix = `avg_${json.meta.title}_`;
+            
+            // 5. 自动识别流程较长的最终结局
+            identifyFinalEndings();
+
+            // 6. 加载存档状态
+            checkSaves();
+
+            // 7. 显示控制按钮
+            document.getElementById('game-controls').style.display = 'block';
+            
+            // 隐藏文件输入按钮
+            document.getElementById('import-btn').style.display = 'none';
+        }
+        
+        // 自动识别流程较长的最终结局
+        function identifyFinalEndings() {
+            finalEndings = [];
+            const allEndings = [];
+            
+            // 1. 收集所有结局及其进度值
+            for (const nodeId in storyData.nodes) {
+                const node = storyData.nodes[nodeId];
+                if (node.isEnding && node.progress !== undefined) {
+                    allEndings.push({ 
+                        title: node.title, 
+                        progress: node.progress,
+                        id: nodeId
+                    });
+                }
+            }
+            
+            if (allEndings.length === 0) return;
+
+            // 2. 按进度值降序排序
+            allEndings.sort((a, b) => b.progress - a.progress);
+
+            // 3. 选择进度最高的（至少达到80%的）作为“最终结局”
+            const minProgressForFinal = 80;
+            finalEndings = allEndings.filter(e => e.progress >= minProgressForFinal);
+            
+            // 如果没有达到80%的结局，则取进度最高的3个
+            if (finalEndings.length === 0) {
+                 finalEndings = allEndings.slice(0, 3);
+            }
+        }
+
+        // 新增：记录已访问过的有开场动画的章节
+        function recordVisitedChapter(nodeId) {
+            let visited = JSON.parse(localStorage.getItem(storageKeyPrefix + 'visitedChapters') || '[]');
+            if (!visited.includes(nodeId)) {
+                visited.push(nodeId);
+                localStorage.setItem(storageKeyPrefix + 'visitedChapters', JSON.stringify(visited));
+            }
+        }
+
+        function checkSaves() {
+            // 加载成就
+            const achStr = localStorage.getItem(storageKeyPrefix + 'achievements');
+            unlockedAchievements = achStr ? JSON.parse(achStr) : [];
+            
+            // 加载segment成就
+            const segmentAchStr = localStorage.getItem(storageKeyPrefix + 'segmentAchievements');
+            unlockedSegmentAchievements = segmentAchStr ? JSON.parse(segmentAchStr) : [];
+            
+            // 检查多周目解锁条件
+            const hasUnlockedFinalEnding = unlockedAchievements.some(ach => {
+                return finalEndings.some(fe => fe.title === ach.title);
+            });
+            
+            if (hasUnlockedFinalEnding) {
+                document.getElementById('ngp-btn').style.display = 'block';
+                setupNewGamePlusScreen(); 
+            } else {
+                document.getElementById('ngp-btn').style.display = 'none';
+            }
+
+
+            // 检查进度存档
+            if (localStorage.getItem(storageKeyPrefix + 'save')) {
+                document.getElementById('continue-btn').style.display = 'block';
+            } else {
+                document.getElementById('continue-btn').style.display = 'none';
+            }
+
+            // 检查是否显示重置按钮 (如果有成就或存档)
+            if (unlockedAchievements.length > 0 || localStorage.getItem(storageKeyPrefix + 'save')) {
+                document.getElementById('wipe-btn').style.display = 'block';
+            } else {
+                document.getElementById('wipe-btn').style.display = 'none';
+            }
+        }
+        
+        // 修复: NGP界面设置 (基于已播放记录)
+        function setupNewGamePlusScreen() {
+            const selectArea = document.getElementById('ngp-chapter-select');
+            selectArea.innerHTML = '';
+            
+            // 1. 获取历史记录
+            const visited = JSON.parse(localStorage.getItem(storageKeyPrefix + 'visitedChapters') || '[]');
+            const availableStarts = [];
+
+            // 2. 始终包含游戏最初始节点 (不依赖进度，确保有选项)
+            const startNode = storyData.nodes[storyData.startNodeId];
+            const startNodeName = (startNode && (startNode.name || startNode.chapterTitle)) || "开始游戏";
+            const startNodeTime = (startNode && startNode.time) || "??月??日 ??：??";
+            const startNodeVal = (startNode && startNode.initialVariable !== undefined) ? startNode.initialVariable : (storyData.meta && storyData.meta.initialVariable) || 80;
+
+            availableStarts.push({
+                name: startNodeName,
+                nodeId: storyData.startNodeId,
+                time: startNodeTime,
+                val: startNodeVal,
+                progress: (startNode && startNode.progress) ? startNode.progress : 0
+            });
+
+            // 3. 遍历历史记录，添加已解锁章节
+            visited.forEach(nodeId => {
+                // 排除 startNodeId (避免重复)
+                if (nodeId === storyData.startNodeId) return;
+
+                const node = storyData.nodes[nodeId];
+                if (node) {
+                    const nodeName = (node.name || node.chapterTitle || nodeId);
+                    const nodeTime = node.time || "??月??日 ??：??";
+                    const nodeVal = (node.initialVariable !== undefined) ? node.initialVariable : (storyData.meta && storyData.meta.initialVariable) || 80;
+                    
+                    availableStarts.push({
+                        name: nodeName,
+                        nodeId: nodeId,
+                        time: nodeTime,
+                        val: nodeVal,
+                        progress: node.progress || 0
+                    });
+                }
+            });
+
+            // 4. 按节点进度排序 (辅助排序，非强制关联)
+            availableStarts.sort((a, b) => a.progress - b.progress);
+
+            // 5. 渲染按钮
+            if (availableStarts.length > 0) {
+                ngpSettings.startNodeId = availableStarts[0].nodeId; // 默认选择第一个
+            }
+            ngpSettings.initialVal = 80;
+
+            availableStarts.forEach(start => {
+                const btn = document.createElement('button');
+                btn.className = 'ngp-option-btn';
+                // 使用innerHTML来支持HTML格式，并复用成就样式
+                btn.innerHTML = `
+                    <div class="ach-name">${start.name}</div>
+                    <div class="ach-time">${start.time}</div>
+                    <div class="ach-description">勇气: ${start.val}</div>
+                `;
+                btn.dataset.nodeId = start.nodeId;
+                btn.onclick = () => {
+                    const selectedNode = storyData.nodes[start.nodeId];
+                    const initialVal = (selectedNode && selectedNode.initialVariable !== undefined) 
+                        ? selectedNode.initialVariable 
+                        : (storyData.meta.initialVariable || 0);
+                
+                    // 直接从该章节开始多周目
+                    startGame(start.nodeId, initialVal);
+                    document.getElementById('ng-plus-screen').style.display = 'none';
+                };
+                
+                selectArea.appendChild(btn);
+            });
+            
+            // 6. 设置初始属性滑块（已隐藏，不再需要设置）
+            // document.getElementById('attr-slider').value = ngpSettings.initialVal;
+            // document.getElementById('attr-slider-value').textContent = ngpSettings.initialVal;
+        }
+        
+        function showNewGamePlusScreen() {
+             document.getElementById('start-screen').style.display = 'none';
+             document.getElementById('ng-plus-screen').style.display = 'flex';
+        }
+        
+        function hideNewGamePlusScreen() {
+             document.getElementById('ng-plus-screen').style.display = 'none';
+             document.getElementById('start-screen').style.display = 'flex';
+        }
+        
+        function startNewGamePlus() {
+            const startNodeId = ngpSettings.startNodeId;
+            
+            if (!startNodeId) {
+                alert("请选择一个起始章节。");
+                return;
+            }
+            
+            // 使用选中节点的initialVariable值，如果没有则使用meta中的initialVariable
+            const selectedNode = storyData.nodes[startNodeId];
+            const initialVal = (selectedNode && selectedNode.initialVariable !== undefined) 
+                ? selectedNode.initialVariable 
+                : (storyData.meta.initialVariable || 0);
+            
+            // 开始 NGP 游戏
+            startGame(startNodeId, initialVal);
+            document.getElementById('ng-plus-screen').style.display = 'none';
+        }
+
+        // --- 游戏流程控制 ---
+
+        function normalStart() {
+            if (!storyData) return;
+            startGame(storyData.startNodeId, storyData.meta.initialVariable || 0);
+        }
+
+        function startGame(startNodeId, initialVal) {
+            gameState = { 
+                nodeId: startNodeId, 
+                val: initialVal, 
+                flags: [], 
+                segmentIndex: 0, 
+                progress: 0,
+                time: storyData.meta.initialTime || ""
+            };
+            gameHistory = [];
+            
+            // 初始化时间显示
+            if (gameState.time) {
+                document.getElementById('time-display').style.display = 'block';
+                updateTimeDisplay();
+            } 
+            
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('top-ui').style.opacity = '1';
+            document.getElementById('control-bar').style.opacity = '1';
+            document.getElementById('control-bar').style.pointerEvents = 'auto';
+            
+            inputEnabled = true; 
+            setControlsEnabled(true); 
+
+            // 隐藏结局按钮
+            document.getElementById('end-btn').style.display = 'none'; 
+            document.getElementById('end-prompt-area').style.opacity = '0';
+            
+            updateStatusUI();
+            processNode(startNodeId);
+        }
+
+        function continueGame() {
+            const saveStr = localStorage.getItem(storageKeyPrefix + 'save');
+            if (saveStr) {
+                const save = JSON.parse(saveStr);
+                gameState = save.gameState;
+                gameHistory = save.gameHistory || [];
+                
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('top-ui').style.opacity = '1';
+                document.getElementById('control-bar').style.opacity = '1';
+                document.getElementById('control-bar').style.pointerEvents = 'auto';
+
+                inputEnabled = true; 
+                setControlsEnabled(true); 
+
+                // 隐藏结局按钮
+                document.getElementById('end-btn').style.display = 'none';
+                document.getElementById('end-prompt-area').style.opacity = '0';
+                
+                updateStatusUI();
+                
+                // 恢复时间显示
+                if (gameState.time) {
+                    document.getElementById('time-display').style.display = 'block';
+                    updateTimeDisplay();
+                }
+                
+                // 恢复到当前节点，不再次保存历史
+                processNode(gameState.nodeId, true);
+            }
+        }
+
+        function autoSave() {
+            if (!storyData) return;
+            const saveObj = {
+                gameState: gameState,
+                gameHistory: gameHistory
+            };
+            localStorage.setItem(storageKeyPrefix + 'save', JSON.stringify(saveObj));
+        }
+
+        // 核心逻辑解析器
+        function processNode(nodeId, isBacktracking = false) {
+            if (!storyData.nodes[nodeId]) {
+                alert("错误：节点不存在 " + nodeId);
+                return;
+            }
+
+            gameState.nodeId = nodeId;
+            gameState.segmentIndex = 0;
+            
+            if (!isBacktracking) autoSave();
+
+            const node = storyData.nodes[nodeId];
+
+            // 更新进度条
+            if (node.progress !== undefined) {
+                gameState.progress = node.progress;
+                document.getElementById('timeline-progress').style.width = gameState.progress + '%';
+            }
+
+            // 更新时间
+            if (node.time !== undefined) {
+                gameState.time = node.time;
+                updateTimeDisplay();
+            }
+
+            // 1. 自动逻辑路由 (Automatic Routes)
+            if (node.routes) {
+                for (let route of node.routes) {
+                    if (checkCondition(route.condition)) {
+                        processNode(route.next, isBacktracking);
+                        return;
+                    }
+                }
+                return; 
+            }
+
+            // 2. 结局处理
+            if (node.isEnding) {
+                showEndingPhase(node);
+                localStorage.removeItem(storageKeyPrefix + 'save'); 
+                return;
+            }
+
+            // 3. 章节转场
+            if (node.chapterTitle) {
+                showChapterTitle(node.chapterTitle, () => renderSegment());
+            } else {
+                renderSegment();
+            }
+        }
+
+        // 简单的条件解析器
+        function checkCondition(condStr) {
+            if (condStr === 'default') return true;
+            
+            // 检查数值
+            if (condStr.includes('val')) {
+                let operator = condStr.match(/>=|<=|>|<|==/)[0];
+                let targetVal = parseInt(condStr.split(operator)[1].trim());
+                let currentVal = gameState.val;
+                
+                if (operator === '>=') return currentVal >= targetVal;
+                if (operator === '<=') return currentVal <= targetVal;
+                if (operator === '>') return currentVal > targetVal;
+                if (operator === '<') return currentVal < targetVal;
+                if (operator === '==') return currentVal == targetVal;
+            }
+
+            // 检查 Flag
+            if (condStr.includes('hasFlag')) {
+                let flagName = condStr.match(/'([^']+)'/)[1];
+                let hasIt = gameState.flags.includes(flagName);
+                if (condStr.startsWith('!')) return !hasIt;
+                return hasIt;
+            }
+
+            return false;
+        }
+
+        function renderSegment() {
+            const node = storyData.nodes[gameState.nodeId];
+            
+            // 如果播放完了所有段落
+            if (!node.segments || gameState.segmentIndex >= node.segments.length) {
+                document.getElementById('continue-hint').style.display = 'none';
+                // 显示选项或直接跳转
+                if (node.choices) {
+                    renderChoices(node.choices);
+                } else if (node.next) {
+                    processNode(node.next);
+                }
+                return;
+            }
+
+            const segment = node.segments[gameState.segmentIndex];
+            const textArea = document.getElementById('text-area');
+            const contentText = document.getElementById('content-text');
+            const speakerLabel = document.getElementById('speaker-label');
+
+            // 淡入淡出效果
+            textArea.style.opacity = '0';
+            textArea.style.transform = 'translateY(10px)';
+
+            setTimeout(() => {
+                // 更新时间（如果segment中定义了time）
+                if (segment.time !== undefined) {
+                    gameState.time = segment.time;
+                    updateTimeDisplay();
+                }
+
+                // 修改val值（如果segment中定义了changes）
+                if (segment.changes) {
+                    if (segment.changes.val) gameState.val += segment.changes.val;
+                    if (segment.changes.valSet !== undefined) gameState.val = segment.changes.valSet;
+                    if (segment.changes.addFlag) gameState.flags.push(segment.changes.addFlag);
+                    if (segment.changes.removeFlag) {
+                        gameState.flags = gameState.flags.filter(f => f !== segment.changes.removeFlag);
+                    }
+                    
+                    // 边界检查
+                    if (gameState.val < 0) gameState.val = 0;
+                    if (gameState.val > 100) gameState.val = 100;
+                    updateStatusUI();
+                }
+
+                // 渲染说话者
+                if (segment.speaker && segment.speaker !== "") {
+                    speakerLabel.textContent = segment.speaker;
+                    speakerLabel.style.display = "block";
+                    // 特殊系统文本样式
+                    if (segment.speaker === "系统" || segment.speaker === "System") {
+                        contentText.innerHTML = `<span class="system-text">${segment.text}</span>`;
+                    } else {
+                        contentText.innerHTML = segment.text;
+                    }
+                } else {
+                    speakerLabel.style.display = "none";
+                    contentText.innerHTML = segment.text;
+                }
+
+                // 触发视觉特效
+                if (segment.effect) handleEffects(segment.effect);
+                
+                // 检测并解锁成就
+                if (segment.achievement) {
+                    const achievement = segment.achievement;
+                    // 检查是否已解锁（通过成就名判断）
+                    if (!unlockedSegmentAchievements.some(a => a.name === achievement.name)) {
+                        // 添加成就
+                        unlockedSegmentAchievements.push({
+                            time: achievement.time || segment.time || "",
+                            name: achievement.name,
+                            description: achievement.description || ""
+                        });
+                        // 保存到localStorage
+                        localStorage.setItem(storageKeyPrefix + 'segmentAchievements', JSON.stringify(unlockedSegmentAchievements));
+                        // 显示弹窗提示
+                        showAchievementToast(achievement);
+                        
+                        // 检测是否全成就解锁
+                        let totalAchievements = 0;
+                        if (storyData && storyData.nodes) {
+                            for (const nodeId in storyData.nodes) {
+                                const node = storyData.nodes[nodeId];
+                                if (node.segments) {
+                                    for (const seg of node.segments) {
+                                        if (seg.achievement) {
+                                            totalAchievements++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        const unlockedCount = unlockedSegmentAchievements.length;
+                        if (unlockedCount === totalAchievements && totalAchievements > 0) {
+                            // 全成就解锁，显示全成就弹窗
+                            showFullAchievementReward();
+                        }
+                    }
+                }
+                
+                textArea.style.opacity = '1';
+                textArea.style.transform = 'translateY(0)';
+                document.getElementById('continue-hint').style.display = 'block';
+            }, 200);
+        }
+
+        function handleEffects(effect) {
+            const container = document.getElementById('game-container');
+            container.classList.remove('shake');
+            document.body.style.filter = "none";
+
+            if (effect === 'shake') {
+                container.classList.add('shake');
+                if("vibrate" in navigator) navigator.vibrate(200);
+            } else if (effect === 'blur') {
+                document.body.style.filter = "blur(2px)";
+                setTimeout(() => document.body.style.filter = "none", 2000);
+            }
+        }
+
+        function renderChoices(choices) {
+            const choicesArea = document.getElementById('choices-area');
+            choicesArea.innerHTML = '';
+            choicesArea.style.opacity = '0';
+            choicesArea.style.pointerEvents = 'auto';
+            
+            // 存入历史栈以便撤回
+            const savedState = JSON.parse(JSON.stringify(gameState));
+            if (gameHistory.length === 0 || gameHistory[gameHistory.length-1].nodeId !== savedState.nodeId) {
+                gameHistory.push(savedState);
+            }
+            autoSave();
+
+            choices.forEach(choice => {
+                // 检查选项是否可见 (可选功能)
+                if (choice.condition && !checkCondition(choice.condition)) return;
+
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = choice.text;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    makeChoice(choice);
+                };
+                choicesArea.appendChild(btn);
+            });
+
+            setTimeout(() => choicesArea.style.opacity = '1', 200);
+        }
+
+        function makeChoice(choice) {
+            document.getElementById('choices-area').style.opacity = '0';
+            document.getElementById('choices-area').style.pointerEvents = 'none';
+
+            // 应用效果
+            if (choice.changes) {
+                if (choice.changes.val) gameState.val += choice.changes.val;
+                if (choice.changes.valSet !== undefined) gameState.val = choice.changes.valSet;
+                if (choice.changes.addFlag) gameState.flags.push(choice.changes.addFlag);
+                if (choice.changes.removeFlag) {
+                    gameState.flags = gameState.flags.filter(f => f !== choice.changes.removeFlag);
+                }
+                
+                // 边界检查
+                if (gameState.val < 0) gameState.val = 0;
+                if (gameState.val > 100) gameState.val = 100;
+                updateStatusUI();
+            }
+
+            processNode(choice.next);
+        }
+
+        // --- UI 更新 ---
+
+        let previousTime = '';
+        
+        function updateTimeDisplay() {
+            const timeDisplay = document.getElementById('time-display');
+            const timeText = document.getElementById('time-text');
+            
+            if (!gameState.time) {
+                timeDisplay.style.display = 'none';
+                previousTime = '';
+                return;
+            }
+            
+            timeDisplay.style.display = 'flex';
+            const currentTime = gameState.time;
+            
+            // 如果时间没有变化，直接返回（不重新渲染）
+            if (currentTime === previousTime) {
+                return;
+            }
+            
+            // 清空现有内容
+            timeText.innerHTML = '';
+            
+            // 将时间字符串拆分成字符
+            const chars = currentTime.split('');
+            const prevChars = previousTime ? previousTime.split('') : [];
+            
+            // 为每个字符创建span元素
+            chars.forEach((char, index) => {
+                const charSpan = document.createElement('span');
+                charSpan.className = 'time-char';
+                
+                const charInner = document.createElement('span');
+                charInner.className = 'time-char-inner';
+                charInner.textContent = char;
+                
+                // 如果字符发生变化且是数字，添加动画类
+                if (previousTime && prevChars[index] !== char && /[0-9]/.test(char)) {
+                    // 使用requestAnimationFrame确保DOM已更新
+                    requestAnimationFrame(() => {
+                        charSpan.classList.add('animate');
+                        // 动画结束后移除类
+                        setTimeout(() => {
+                            charSpan.classList.remove('animate');
+                        }, 500);
+                    });
+                }
+                
+                charSpan.appendChild(charInner);
+                timeText.appendChild(charSpan);
+            });
+            
+            previousTime = currentTime;
+        }
+
+        function updateStatusUI() {
+            const fill = document.getElementById('heat-bar-fill');
+            const num = document.getElementById('heat-num');
+            const vignette = document.getElementById('vignette-overlay');
+            
+            fill.style.width = gameState.val + '%';
+            num.textContent = gameState.val + '%';
+            
+            // 动态视觉反馈 (根据数值改变背景强度)
+            const intensity = gameState.val / 100;
+            // 模拟热浪/压力暗角
+            vignette.style.boxShadow = `inset 0 0 ${50 + intensity * 150}px rgba(0,0,0, ${0.1 + intensity * 0.4})`;
+            
+            // 如果是高数值，背景切换到 intense 颜色
+            if (intensity > 0.5) {
+                document.body.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-hot');
+            } else {
+                document.body.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-base');
+            }
+        }
+
+        function showChapterTitle(title, callback) {
+            inputEnabled = false; 
+            setControlsEnabled(false); 
+
+            // 关键逻辑：在此处记录已播放的章节
+            recordVisitedChapter(gameState.nodeId);
+
+            const screen = document.getElementById('chapter-screen');
+            const titleEl = document.getElementById('chapter-title');
+            titleEl.textContent = title;
+            titleEl.style.color = "var(--accent-color)";
+            screen.style.opacity = '1';
+
+            setTimeout(() => {
+                screen.style.opacity = '0';
+                setTimeout(() => {
+                    inputEnabled = true; 
+                    setControlsEnabled(true); 
+                    callback();
+                }, 1000);
+            }, 2500);
+        }
+
+        function showEndingPhase(node) {
+            document.getElementById('control-bar').style.opacity = '0';
+            document.getElementById('control-bar').style.pointerEvents = 'none';
+
+            // 解锁成就
+            if (!unlockedAchievements.some(a => a.title === node.title)) {
+                const endingId = node.id || gameState.nodeId; // 使用当前节点ID作为结局ID
+                unlockedAchievements.push({ 
+                    title: node.title, 
+                    type: node.type, 
+                    desc: node.description,
+                    id: endingId
+                });
+                localStorage.setItem(storageKeyPrefix + 'achievements', JSON.stringify(unlockedAchievements));
+            }
+
+            const textArea = document.getElementById('text-area');
+            const choicesArea = document.getElementById('choices-area');
+
+            textArea.style.opacity = '0';
+            choicesArea.style.opacity = '0';
+            choicesArea.style.pointerEvents = 'none'; 
+
+            setTimeout(() => {
+                document.getElementById('speaker-label').style.display = "none";
+                document.getElementById('content-text').innerHTML = `<span class="system-text" style="font-size:1.1rem; line-height:1.8;">${node.description}</span>`;
+                textArea.style.opacity = '1';
+                
+                // 启用输入，让“结束”按钮可点击
+                inputEnabled = true; 
+                
+                const endBtn = document.getElementById('end-btn');
+                endBtn.textContent = "结束";
+                endBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    playEndingAnim(node.title); 
+                };
+                endBtn.style.display = 'block';
+                document.getElementById('end-prompt-area').style.opacity = '1';
+
+            }, 500);
+            
+            // 进度条满
+            document.getElementById('timeline-progress').style.width = '100%';
+        }
+
+        function playEndingAnim(title) {
+            inputEnabled = false; 
+
+            document.getElementById('end-prompt-area').style.opacity = '0'; 
+            
+            const screen = document.getElementById('chapter-screen');
+            const titleEl = document.getElementById('chapter-title');
+            
+            document.getElementById('game-container').style.opacity = '0';
+            document.getElementById('top-ui').style.opacity = '0';
+
+            titleEl.innerHTML = title;
+            titleEl.style.fontSize = "2.5rem";
+            titleEl.style.color = "#000"; 
+            
+            screen.style.opacity = '1';
+            
+            // 结局后返回当前游戏主页
+            setTimeout(() => {
+                inputEnabled = true; 
+
+                // 重置游戏界面显示
+                document.getElementById('game-container').style.opacity = '1';
+                // 隐藏全屏动画
+                screen.style.opacity = '0'; 
+                // 返回主页菜单
+                document.getElementById('start-screen').style.display = 'flex';
+                // 检查存档，更新继续按钮状态和NGP按钮状态
+                checkSaves(); 
+            }, 3500);
+        }
+
+        // --- 杂项功能 ---
+
+        function handleContainerClick() {
+            if (!inputEnabled) return; 
+
+            if (!storyData) return;
+            const node = storyData.nodes[gameState.nodeId];
+            if (document.getElementById('choices-area').style.opacity === '1') return;
+            
+            // 结局时点击屏幕不响应
+            if (node && node.isEnding) return; 
+            
+            if (node && node.segments && gameState.segmentIndex < node.segments.length) {
+                gameState.segmentIndex++;
+                renderSegment();
+            }
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            if (!inputEnabled) return; 
+
+            if (document.getElementById('start-screen').style.display !== 'none' || !storyData) return;
+            
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') loadPrevChoice();
+            else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') skipToNextChoice();
+        });
+
+        function loadPrevChoice() {
+            if (!inputEnabled) return; 
+            
+            if (gameHistory.length > 0) {
+                const prevState = gameHistory.pop();
+                gameState = JSON.parse(JSON.stringify(prevState));
+                
+                document.getElementById('choices-area').style.opacity = '0';
+                document.getElementById('choices-area').style.pointerEvents = 'none';
+                updateStatusUI();
+                document.getElementById('timeline-progress').style.width = gameState.progress + '%';
+                
+                processNode(gameState.nodeId, true);
+                autoSave();
+            }
+        }
+
+        function skipToNextChoice() {
+            if (!inputEnabled) return; 
+            const node = storyData.nodes[gameState.nodeId];
+            if (document.getElementById('choices-area').style.opacity === '1') return;
+            if (node.isEnding) return;
+
+            if (node.segments && gameState.segmentIndex < node.segments.length - 1) {
+                gameState.segmentIndex = node.segments.length - 1;
+                renderSegment();
+            } else {
+                handleContainerClick();
+            }
+        }
+
+        function returnToTitle() {
+            if (confirm("确定要返回主页吗？游戏会自动保存。")) {
+                autoSave();
+                
+                // 隐藏游戏UI
+                document.getElementById('top-ui').style.opacity = '0';
+                document.getElementById('control-bar').style.opacity = '0';
+                
+                // 显示主页
+                document.getElementById('start-screen').style.display = 'flex';
+                checkSaves(); 
+            }
+        }
+
+        function wipeMemory() {
+            if (confirm("警告：这将删除该游戏的所有进度和结局记录。\n确定要重置吗？")) {
+                localStorage.removeItem(storageKeyPrefix + 'achievements');
+                localStorage.removeItem(storageKeyPrefix + 'segmentAchievements');
+                localStorage.removeItem(storageKeyPrefix + 'save');
+                // 新增：清除章节历史记录
+                localStorage.removeItem(storageKeyPrefix + 'visitedChapters'); 
+                location.reload(); 
+            }
+        }
+
+        // 菜单显示逻辑
+        function showAchievements() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('achievement-screen').style.display = 'flex';
+            const grid = document.getElementById('ach-grid');
+            grid.innerHTML = '';
+            
+            if (unlockedAchievements.length === 0) {
+                grid.innerHTML = '<div style="color:#999; text-align:center; grid-column: 1/-1;">暂无达成结局</div>';
+            } else {
+                unlockedAchievements.forEach((ach, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'ach-item unlocked';
+                    div.innerHTML = `<strong>${ach.title}</strong><br><span style="font-size:0.7rem;color:#666">${ach.type}</span>`;
+                    div.style.cursor = 'pointer';
+                    div.onclick = () => {
+                        showEndingDetail(ach);
+                    };
+                    grid.appendChild(div);
+                });
+            }
+        }
+
+        function hideAchievements() {
+            document.getElementById('achievement-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+        }
+        
+        function showEndingDetail(ending) {
+            if (!ending || !storyData || !storyData.meta) return;
+            
+            const screen = document.getElementById('ending-detail-screen');
+            const titleEl = document.getElementById('ending-detail-title');
+            const mainEl = document.getElementById('ending-detail-main-text');
+            const descEl = document.getElementById('ending-detail-desc-text');
+            
+            // 标题：结局标题，居中展示
+            titleEl.textContent = ending.title || '';
+            
+            // 正文：从 meta.endingDetail 中读取自定义长文本
+            const detailMap = storyData.meta.endingDetail || {};
+            const detailRaw = ending.id ? (detailMap[ending.id] || '') : '';
+            const detailHtml = detailRaw.replace(/\n/g, '<br>');
+            mainEl.innerHTML = detailHtml;
+            
+            // 结尾：显示原有 description，使用 system-text 风格
+            const desc = ending.desc || '';
+            const descHtml = desc.replace(/\n/g, '<br>');
+            descEl.innerHTML = descHtml;
+            
+            document.getElementById('achievement-screen').style.display = 'none';
+            screen.style.display = 'flex';
+        }
+        
+        function hideEndingDetail() {
+            document.getElementById('ending-detail-screen').style.display = 'none';
+            document.getElementById('achievement-screen').style.display = 'flex';
+        }
+
+        // Segment成就相关函数
+        function showAchievementToast(achievement) {
+            const toast = document.getElementById('achievement-toast');
+            const nameSpan = document.getElementById('toast-achievement-name');
+            
+            nameSpan.textContent = achievement.name;
+            toast.style.display = 'block';
+            
+            // 触发显示动画
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+            
+            // 3秒后自动淡出
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 300);
+            }, 3000);
+        }
+
+        function showSegmentAchievements() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('segment-achievement-screen').style.display = 'flex';
+            
+            const grid = document.getElementById('segment-ach-grid');
+            const stats = document.getElementById('segment-ach-stats');
+            grid.innerHTML = '';
+            
+            // 计算总成就数
+            let totalAchievements = 0;
+            if (storyData && storyData.nodes) {
+                for (const nodeId in storyData.nodes) {
+                    const node = storyData.nodes[nodeId];
+                    if (node.segments) {
+                        for (const segment of node.segments) {
+                            if (segment.achievement) {
+                                totalAchievements++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            const unlockedCount = unlockedSegmentAchievements.length;
+            stats.textContent = `已收集成就：${unlockedCount}${totalAchievements > 0 ? `/${totalAchievements}` : '/?'}`;
+            
+            // 检测是否全成就解锁
+            const isFullAchievement = unlockedCount === totalAchievements && totalAchievements > 0;
+            const buttonContainer = document.getElementById('full-achievement-button-container');
+            if (isFullAchievement) {
+                buttonContainer.style.display = 'block';
+            } else {
+                buttonContainer.style.display = 'none';
+            }
+            
+            if (unlockedSegmentAchievements.length === 0) {
+                grid.innerHTML = '<div style="color:#999; text-align:center; grid-column: 1/-1;">暂无达成成就</div>';
+            } else {
+                // 按解锁时间倒序（最新的在前）
+                const sortedAchievements = [...unlockedSegmentAchievements].reverse();
+                
+                sortedAchievements.forEach(ach => {
+                    const div = document.createElement('div');
+                    div.className = 'segment-ach-item';
+                    div.innerHTML = `
+                        <div class="ach-time">${ach.time || ''}</div>
+                        <div class="ach-name">${ach.name}</div>
+                        <div class="ach-description">${ach.description || ''}</div>
+                    `;
+                    grid.appendChild(div);
+                });
+            }
+        }
+
+        function hideSegmentAchievements() {
+            document.getElementById('segment-achievement-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+        }
+        
+        // 全成就奖励相关函数
+        function showFullAchievementReward() {
+            if (!storyData || !storyData.meta || !storyData.meta.fullAchievementReward) {
+                return;
+            }
+            
+            const toast = document.getElementById('full-achievement-toast');
+            const textSpan = document.getElementById('full-toast-text');
+            
+            const toastText = storyData.meta.fullAchievementReward.toastText || "全成就达成！";
+            textSpan.textContent = toastText;
+            toast.style.display = 'block';
+            
+            // 触发显示动画
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+            
+            // 5秒后自动淡出（比普通成就弹窗更长）
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 500);
+            }, 5000);
+        }
+        
+        function showFullAchievementRewardText() {
+            if (!storyData || !storyData.meta || !storyData.meta.fullAchievementReward) {
+                return;
+            }
+            
+            const rewardText = storyData.meta.fullAchievementReward.text || "";
+            const screen = document.getElementById('full-achievement-reward-screen');
+            const contentText = document.getElementById('reward-content-text');
+            const speakerLabel = document.getElementById('reward-speaker-label');
+            
+            // 隐藏成就页面
+            document.getElementById('segment-achievement-screen').style.display = 'none';
+            
+            // 直接使用innerHTML显示文本，支持HTML格式（与游戏流程一致）
+            // 文本内容应该已经是HTML格式，可以直接显示
+            // 将换行符转换为<br>标签以便正确显示
+            const formattedText = rewardText.replace(/\n/g, '<br>');
+            contentText.innerHTML = formattedText;
+            
+            // 隐藏speaker标签（奖励文本通常不需要speaker）
+            speakerLabel.style.display = "none";
+            
+            // 显示奖励文本界面
+            screen.style.display = 'flex';
+        }
+        
+        function hideFullAchievementRewardText() {
+            document.getElementById('full-achievement-reward-screen').style.display = 'none';
+            document.getElementById('segment-achievement-screen').style.display = 'flex';
+        }
+
+    </script>
+</body>
+</html>
