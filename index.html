@@ -353,7 +353,7 @@
             pointer-events: none;
         }
         #achievement-toast.show {
-            opacity: 1;
+            opacity: 0.8;
         }
         
         /* 全成就弹窗样式 */
@@ -370,9 +370,18 @@
             border: 1px solid rgba(255, 255, 255, 0.4);
             opacity: 0; transition: opacity 0.5s ease;
             pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         #full-achievement-toast.show {
             opacity: 1;
+        }
+        #full-toast-subtitle {
+            font-size: 0.85rem;
+            color: #999;
+            font-weight: normal;
+            margin-top: 6px;
         }
         
         /* Segment成就页面 */
@@ -668,6 +677,7 @@
     
     <div id="full-achievement-toast" style="display: none;">
         <span id="full-toast-text"></span>
+        <div id="full-toast-subtitle"></div>
     </div>
 
     <div id="game-container" onclick="handleContainerClick()">
@@ -1781,9 +1791,13 @@
             
             const toast = document.getElementById('full-achievement-toast');
             const textSpan = document.getElementById('full-toast-text');
+            const subtitleSpan = document.getElementById('full-toast-subtitle');
             
             const toastText = storyData.meta.fullAchievementReward.toastText || "全成就达成！";
             textSpan.textContent = toastText;
+            const toastSubtitle = storyData.meta.fullAchievementReward.toastSubtitle || "";
+            subtitleSpan.textContent = toastSubtitle;
+            
             toast.style.display = 'block';
             
             // 触发显示动画
@@ -1813,13 +1827,10 @@
             // 隐藏成就页面
             document.getElementById('segment-achievement-screen').style.display = 'none';
             
-            // 直接使用innerHTML显示文本，支持HTML格式（与游戏流程一致）
-            // 文本内容应该已经是HTML格式，可以直接显示
-            // 将换行符转换为<br>标签以便正确显示
             const formattedText = rewardText.replace(/\n/g, '<br>');
             contentText.innerHTML = formattedText;
             
-            // 隐藏speaker标签（奖励文本通常不需要speaker）
+            // 隐藏speaker标签
             speakerLabel.style.display = "none";
             
             // 显示奖励文本界面
