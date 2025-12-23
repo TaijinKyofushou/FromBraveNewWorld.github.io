@@ -237,6 +237,11 @@
             0% { letter-spacing: 1rem; opacity: 0.7; filter: blur(0px); }
             100% { letter-spacing: 1.2rem; opacity: 1; filter: blur(0.5px); }
         }
+        
+        @keyframes heat-shimmer-mobile {
+            0% { letter-spacing: 0.8rem; opacity: 0.7; filter: blur(0px); }
+            100% { letter-spacing: 1rem; opacity: 1; filter: blur(0.5px); }
+        }
 
         .credits { font-size: 0.8rem; color: #999; margin-bottom: 30px; letter-spacing: 2px; }
         
@@ -551,7 +556,12 @@
 
         @media (max-width: 600px) {
             .title-main { font-size: 3.5rem; letter-spacing: -2px; }
-            .title-sub { font-size: 0.9rem; letter-spacing: 0.5rem; margin-left: 0.2rem; }
+            .title-sub { 
+                font-size: 0.9rem; 
+                letter-spacing: 0.5rem; 
+                margin-left: 0.2rem;
+                animation: heat-shimmer-mobile 4s infinite alternate ease-in-out;
+            }
             #text-area { font-size: 1.1rem; line-height: 1.8; }
             #control-bar { padding: 10px; gap: 10px; }
             .control-btn { font-size: 0.7rem; padding: 5px 10px; }
@@ -596,9 +606,9 @@
     <div id="start-screen">
         <div class="title-container">
             <h1 class="title-main" id="main-title">AVG ENGINE</h1>
-            <div class="title-sub" id="sub-title">请导入剧本</div>
+            <div class="title-sub" id="sub-title">调试页面</div>
         </div>
-        <div class="credits" id="credits-text">通用文字冒险游戏播放器</div>
+        <div class="credits" id="credits-text">导入剧本以开始游戏</div>
         
         <div id="loading-hint" style="display:none; color:#999; font-size:0.9rem; margin:20px 0;">正在加载 libretto.json...</div>
         <div id="error-hint" style="display:none; color:#d93025; font-size:0.9rem; margin:20px 0; max-width:500px; text-align:center;">未找到 libretto.json 文件，请使用下方按钮导入剧本</div>
@@ -830,7 +840,7 @@
             }
 
             // 3. 应用数值名称
-            document.getElementById('var-name').textContent = json.meta.variableName || "？？？";
+            document.getElementById('var-name').textContent = json.meta.variableName || "";
             document.getElementById('ngp-var-name').textContent = document.getElementById('var-name').textContent;
             
             // 4. 初始化时间显示
